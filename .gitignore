@@ -1,0 +1,185 @@
+# --------------------------------------------------------------------------
+# .gitignore — kanban (Next.js frontend + FastAPI backend + Python/uv + Docker + SQLite)
+# --------------------------------------------------------------------------
+
+# ---- Secrets / environment ----
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# ---- Node / Next.js (frontend) ----
+# dependencies (restored from package-lock.json via npm install)
+node_modules/
+/.pnp
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/versions
+# Next.js build output
+.next/
+out/
+# Next.js generated
+next-env.d.ts
+# production build report
+build/
+# npm / yarn logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+# frontend lockfiles at repo root (none expected here; root package-lock is stray)
+/package-lock.json
+# Playwright / Vitest artifacts
+test-results/
+playwright-report/
+playwright/.cache/
+coverage/
+*.cover
+*.lcov
+# Generated typecheck/build cache
+*.tsbuildinfo
+
+# ---- Python / uv / pip ----
+# caches
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+# uv
+.venv/
+venv/
+ENV/
+env/
+env.bak/
+venv.bak/
+# uv-managed environment metadata that should not be committed
+.uv/
+# distribution / packaging
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+# PyInstaller
+*.manifest
+*.spec
+# installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+# unit test / coverage reports
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+.pytest_cache/
+cover/
+# ruff / mypy / pytype caches
+.ruff_cache/
+.mypy_cache/
+.dmypy.json
+dmypy.json
+.pyre/
+.pytype/
+# Translations
+*.mo
+*.pot
+# Django / Flask sample artifacts (keep ignored in case generated)
+instance/
+.webassets-cache
+local_settings.py
+*.log
+db.sqlite3
+db.sqlite3-journal
+# Celery / Spyder / Rope / SageMath / PyBuilder / Jupyter
+celerybeat-schedule
+celerybeat.pid
+.spyderproject
+.spyproject
+.ropeproject/
+.ipynb_checkpoints/
+profile_default/
+ipython_config.py
+.pybuilder/
+target/
+*.sage.py
+cython_debug/
+# pdm / pipenv / poetry (kept commented-out by convention; uncomment to use)
+#Pipfile.lock
+#poetry.lock
+.pdm.toml
+.pdm-python
+.pdm-build/
+__pypackages__/
+# PyPI config
+.pypirc
+
+# ---- SQLite / local databases ----
+backend/data/
+*.db
+*.sqlite
+*.sqlite3
+*.db-journal
+*.sqlite3-journal
+
+# ---- Docker ----
+# local compose overrides
+docker-compose.override.yml
+# runtime volumes if mounted at repo root
+/data/
+docker-data/
+
+# ---- Logs ----
+logs/
+*.log
+
+# ---- Editors / IDEs ----
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.project
+.classpath
+.settings/
+*.sublime-workspace
+*.sublime-project
+
+# ---- OS-specific ----
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+Desktop.ini
+
+# ---- Misc generated / temp ----
+.cache/
+tmp/
+temp/
+*.tmp
+*.bak
