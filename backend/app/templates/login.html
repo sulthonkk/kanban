@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Momentum | Sign in</title>
+<style>
+  :root { --navy:#032147; --purple:#753991; --yellow:#ecad0a; --blue:#209dd7; --gray:#888888; }
+  * { box-sizing:border-box; }
+  body {
+    margin:0; min-height:100vh; display:grid; place-items:center;
+    background:linear-gradient(180deg,#fff 0 280px,#F4F4F4 280px);
+    font-family:Arial,Helvetica,sans-serif; color:var(--navy);
+  }
+  .card {
+    width:100%; max-width:380px; padding:34px 32px 26px;
+    background:#fff; border-radius:14px;
+    box-shadow:0 12px 32px rgba(3,33,71,.08);
+    border-top:4px solid var(--yellow);
+  }
+  .brand { font:700 22px Georgia,serif; letter-spacing:-1px; margin:0 0 6px; }
+  .brand::after { content:"."; color:var(--blue); }
+  .eyebrow {
+    margin:0 0 18px; color:var(--blue);
+    font-size:10px; font-weight:700; letter-spacing:1.4px;
+  }
+  h1 { margin:0 0 22px; color:var(--navy); font:600 24px/1.2 Georgia,serif; }
+  label {
+    display:block; color:var(--gray);
+    font-size:11px; font-weight:700; letter-spacing:.7px;
+    text-transform:uppercase; margin-bottom:6px;
+  }
+  input {
+    width:100%; padding:11px 12px; border:1px solid #d9e0e5;
+    border-radius:8px; font:inherit; color:var(--navy);
+    outline-color:var(--blue); margin-bottom:16px;
+  }
+  button {
+    width:100%; padding:12px; background:var(--purple); color:#fff;
+    border:0; border-radius:8px; font-size:14px; font-weight:600;
+    cursor:pointer; transition:filter .15s ease;
+  }
+  button:hover { filter:brightness(1.08); }
+  .error {
+    margin:0 0 16px; padding:10px 12px; background:#fde8ee;
+    color:#b3261e; border-radius:8px; font-size:13px;
+  }
+  .hint { margin:18px 0 0; color:var(--gray); font-size:11px; text-align:center; }
+  .hint code { color:var(--navy); background:#f0f3f6; padding:1px 6px; border-radius:4px; }
+</style>
+</head>
+<body>
+  <main class="card">
+    <p class="brand">momentum</p>
+    <p class="eyebrow">PROJECT SPACE</p>
+    <h1>Sign in</h1>
+    {error_block}
+    <form action="/api/login" method="post">
+      <label for="username">Username</label>
+      <input id="username" name="username" type="text"
+             autocomplete="username" autofocus required />
+      <label for="password">Password</label>
+      <input id="password" name="password" type="password"
+             autocomplete="current-password" required />
+      <button type="submit">Sign in</button>
+      <p class="hint">Demo credentials: <code>user</code> / <code>password</code></p>
+    </form>
+  </main>
+</body>
+</html>
