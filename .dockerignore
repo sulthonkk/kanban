@@ -1,0 +1,33 @@
+# Anything that should not enter the Docker build context.
+.git
+.github
+docs
+scripts
+README.md
+AGENTS.md
+
+# Python backend build/cache
+backend/.venv
+backend/__pycache__
+backend/**/__pycache__
+backend/data
+backend/*.db
+backend/*.sqlite3
+
+# Node / Next.js frontend build cache and deps (re-installed inside image)
+frontend/node_modules
+frontend/.next
+frontend/out
+frontend/test-results
+frontend/playwright-report
+frontend/coverage
+
+# Secrets / OS / IDE
+.env
+.env.*
+!.env.example
+.DS_Store
+.vscode
+.idea
+*.log
+*.tmp

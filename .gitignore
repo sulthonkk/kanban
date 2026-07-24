@@ -13,6 +13,7 @@
 # dependencies (restored from package-lock.json via npm install)
 node_modules/
 /.pnp
+.pnpm-store/
 .pnp.*
 .yarn/*
 !.yarn/patches
@@ -22,6 +23,7 @@ node_modules/
 # Next.js build output
 .next/
 out/
+frontend/out/
 # Next.js generated
 next-env.d.ts
 # production build report
