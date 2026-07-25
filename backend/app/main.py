@@ -6,6 +6,7 @@ from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
 
+from app.ai_api import router as ai_router
 from app.auth import SESSION_KEY, SESSION_SECRET, login_html, verify_credentials
 from app.board_api import router as board_router
 from app.db import init_db
@@ -20,6 +21,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="Kanban API", version="0.1.0", lifespan=lifespan)
 
 app.include_router(board_router)
+app.include_router(ai_router)
 
 STATIC_DIR = Path(__file__).resolve().parent.parent / "static"
 INDEX_FILE = STATIC_DIR / "index.html"

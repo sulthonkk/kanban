@@ -9,7 +9,8 @@ statically-exported Next.js frontend (built into `frontend/out/` and copied to
 - `app/main.py` — FastAPI app. Auth middleware, login/logout routes, SPA
   fallback for the frontend. A `lifespan` async context manager calls
   `app.db.init_db()` on startup so the database is created/seeded on first run,
-  and includes the board API router before the SPA catch-all route.
+  and includes the board API router and the AI API router before the SPA
+  catch-all route.
 - `app/auth.py` — Hardcoded single-user credentials (`user` / `password`),
   bcrypt password hashing, signed-cookie session helpers, login form HTML.
 - `app/db.py` — SQLite persistence layer (schema, auto-create + seed, FastAPI
@@ -22,10 +23,18 @@ statically-exported Next.js frontend (built into `frontend/out/` and copied to
   missing resources (routes map that to 404).
 - `app/board_api.py` — Thin `APIRouter` (prefix `/api`) with the six board
   endpoints. Routes delegate to `board_service` and only handle HTTP concerns.
+- `app/ai_client.py` — OpenRouter AI client. Minimal wrapper over the OpenAI
+  SDK pointed at `https://openrouter.ai/api/v1`. Reads `OPENROUTER_API_KEY`
+  and `OPENROUTER_MODEL` (default `openai/gpt-oss-20b:free`) from the env,
+  no model name is hardcoded in app code. See "AI connectivity" below.
+- `app/ai_api.py` — Thin `APIRouter` (prefix `/api/ai`) for AI features.
+  Phase 7 exposes `GET /api/ai/test` ("What is 2+2?") returning
+  `{"answer": "..."}`. Routes delegate to `ai_client`; config errors map to
+  503, upstream errors to 502.
 - `app/templates/login.html` — Login form template (styled per the project
   color scheme; Python `.replace('{error_block}', ...)` for error injection).
 - `app/tests/` — pytest unit tests (`test_main.py`, `test_auth.py`,
-  `test_db.py`, `test_board_api.py`).
+  `test_db.py`, `test_board_api.py`, `test_ai.py`).
 - `requirements.txt` — Python dependencies (pinned).
 - `pyproject.toml` — ruff + pytest configuration.
 - `Dockerfile` — multi-stage build (Node stage builds the frontend,
@@ -111,8 +120,9 @@ clamped destination index and renumbers the destination. `index` is optional
 
 Scoping: each request resolves the board via `board_service._resolve_board`
 from the session username (`request.session[SESSION_KEY]`), so only the
-authenticated user's single board is ever touched. The frontend is not yet
-wired to these endpoints (Phase 7); it still uses in-memory `board.ts`.
+authenticated user's single board is ever touched. The frontend is wired to
+these endpoints (`frontend/src/lib/api.ts` + `KanbanBoard.tsx`) and a
+"Sign out" button calls `POST /api/logout`.
 
 ### Testing the board API
 
@@ -126,3 +136,51 @@ wired to these endpoints (Phase 7); it still uses in-memory `board.ts`.
 The existing `client` / `authed_client` fixtures are unchanged (they never
 touch the DB), so non-DB tests remain unaffected. `test_board_api.py`
 covers every endpoint plus auth-failure and invalid-input cases.
+
+## AI connectivity
+
+`app/ai_client.py` is the AI connectivity foundation (Phase 7).
+
+- **Config:** `OPENROUTER_API_KEY` (required) and `OPENROUTER_MODEL`
+  (optional, defaults to `openai/gpt-oss-20b:free` per AGENTS.md) are read
+  from the environment. The model name is never hardcoded in application
+  code; the default lives here only for local dev convenience.
+- **Client:** wraps the OpenAI SDK pointed at `https://openrouter.ai/api/v1`.
+  The SDK client is lazily built and cached module-level. `reset()` clears
+  the cache (used by tests to force re-reading the env).
+- **Surface:** `ask(prompt, *, response_format=None, max_tokens=2000) -> str`
+  sends a single-turn prompt and returns the assistant's text content
+  (empty string if the model returned `None` content, e.g. a reasoning model
+  that only emitted reasoning). `response_format` is accepted for later
+  phases (structured outputs) but unused by Phase 7.
+- **Errors:** `AIConfigError` (subclass of `RuntimeError`) is raised when
+  `OPENROUTER_API_KEY` is unset. The route maps it to HTTP 503; upstream
+  SDK/network failures map to HTTP 502.
+- **Endpoint:** `GET /api/ai/test` sends "What is 2+2? Reply with just the
+  number." and returns `{"answer": "..."}`. Auth-gated like all other
+  `/api/*` routes (unauthed -> 303 to `/login`).
+
+### Model capability notes
+
+`openai/gpt-oss-20b:free` is a reasoning model. Verified live against
+OpenRouter:
+
+- Plain text completion: works (e.g. "2+2" -> "4").
+- `response_format: json_schema` (strict structured outputs): supported by
+  the parameter but intermittent for this model — some calls return
+  `content: null` because the model spends the token budget on reasoning.
+  Workaround for Phase 8 (which uses structured outputs): use a generous
+  `max_tokens` (>= 2000), retry on `content is None`, or fall back to
+  `response_format: {type: "json_object"}` (100% reliable in testing).
+
+Phase 7 only uses the plain text path, which is reliable.
+
+### Testing the AI client
+
+`test_ai.py` monkeypatches `ai_client._client` with a fake SDK client that
+records the request kwargs and returns a canned completion. No live network
+calls run in the suite. Coverage: successful response, request-shape
+assertion (model from env, no hardcoded model in the call, no
+`response_format` for the test prompt), `OPENROUTER_MODEL` override,
+auth-gating (303 to `/login`), 503 on missing key, 502 on upstream error,
+and `None`-content coercion.

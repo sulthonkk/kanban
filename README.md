@@ -27,7 +27,13 @@ origin in production.
 - **Backend REST API** — `/api/board` (read), `/api/columns/{id}/rename`,
   `/api/cards` (create), `/api/cards/{id}` (delete),
   `/api/cards/{id}/move`, and `/api/board/meta` (rename board). Mutations
-  return the full board snapshot for the frontend to swap in.
+  return the full board snapshot for the frontend to swap in. A connectivity
+  endpoint `GET /api/ai/test` returns the OpenRouter model's answer to
+  "What is 2+2?" (AI foundation; full chat arrives in a later phase).
+- **AI connectivity** — OpenAI SDK pointed at OpenRouter
+  (`https://openrouter.ai/api/v1`). `OPENROUTER_API_KEY` and
+  `OPENROUTER_MODEL` (default `openai/gpt-oss-20b:free`) come from the
+  environment; no model name is hardcoded in application code.
 - **Deployment** — Docker multi-stage build (Node stage builds the
   frontend, Python stage serves it) orchestrated via `docker-compose.yml`.
 
@@ -101,4 +107,7 @@ seeded automatically on first startup.
 ## Environment
 
 API keys and other secrets live in `.env` at the repo root (never committed).
-See `.env.example` for required variables.
+Required variables (see `.env.example`):
+
+- `OPENROUTER_API_KEY` — OpenRouter API key (used by the AI connectivity layer)
+- `OPENROUTER_MODEL` — model id for AI requests (defaults to `openai/gpt-oss-20b:free`)
