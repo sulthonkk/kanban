@@ -10,7 +10,9 @@ origin in production.
 
 - **Frontend** (`frontend/`) — Next.js client-rendered app (Kanban board +
   Sprint overview), statically exported via `next build` with
-  `output: 'export'`. In dev, `/api/*` is proxied to the backend.
+  `output: 'export'`. Reads from and writes to the backend REST API
+  (`src/lib/api.ts`). A "Sign out" button calls `POST /api/logout`. In dev,
+  `/api/*` and `/login` are proxied to the backend.
 - **Backend** (`backend/`) — FastAPI app exposing the `/api/*` REST API and
   serving the static frontend build. Thin routes delegate to a board
   service that owns all database work.
@@ -29,10 +31,9 @@ origin in production.
 - **Deployment** — Docker multi-stage build (Node stage builds the
   frontend, Python stage serves it) orchestrated via `docker-compose.yml`.
 
-Request flow: **frontend → FastAPI API routes → board_service → SQLite**.
-
-> Note: the frontend currently uses local in-memory state and is not yet
-> wired to the backend API. That integration is the next phase of work.
+Request flow (live end-to-end): **frontend → FastAPI API routes → board_service → SQLite**.
+The frontend hydrates the board from `GET /api/board` and persists every
+mutation through the API; on session expiry it redirects back to `/login`.
 
 ## Project structure
 

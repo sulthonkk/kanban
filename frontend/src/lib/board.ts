@@ -1,5 +1,6 @@
 export type Card = { id: string; title: string; details: string };
 export type Column = { id: string; title: string; cards: Card[] };
+export type Board = { id: string; title: string; columns: Column[] };
 
 export const initialColumns: Column[] = [
   { id: "backlog", title: "Backlog", cards: [{ id: "card-1", title: "Refresh the onboarding", details: "Make the first five minutes feel effortless." }, { id: "card-2", title: "Customer interview notes", details: "Pull out the themes from this week's calls." }] },

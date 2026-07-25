@@ -1,6 +1,8 @@
 import { expect, test } from "@playwright/test";
+import { installMockApi } from "./mock-api";
 
 test("supports the core board workflow", async ({ page }) => {
+  await installMockApi(page);
   await page.goto("/");
   await expect(page.getByLabel("This week sprint overview")).toBeVisible();
   await page.getByLabel("Project title").fill("Launch Sprint");
@@ -27,6 +29,9 @@ test("supports the core board workflow", async ({ page }) => {
   await ready.getByLabel("Card title").fill("Check release notes");
   await ready.getByLabel("Card details").fill("Proof the final version.");
   await ready.getByRole("button", { name: "Add card" }).click();
+  await expect(ready).toContainText("Check release notes");
+  // Persisted across a reload (the mock store survives navigation).
+  await page.reload();
   await expect(ready).toContainText("Check release notes");
   await ready.getByRole("button", { name: "Delete Check release notes", exact: true }).click();
   await expect(ready).not.toContainText("Check release notes");

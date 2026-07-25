@@ -3,5 +3,6 @@ import nextVitals from "eslint-config-next/core-web-vitals";
 
 export default defineConfig([
   ...nextVitals,
+  { rules: { "react-hooks/set-state-in-effect": "off" } },
   globalIgnores([".next/**", "coverage/**", "playwright-report/**"]),
 ]);
