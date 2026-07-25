@@ -1,7 +1,38 @@
-# Kanban
+# Momentum
 
-A single-board Kanban application. Next.js frontend (React + dnd-kit) statically
-exported and served by a FastAPI backend. Single origin in production.
+An AI-powered single-board project management application. Momentum pairs a
+focused Kanban board with an assistive AI sidekick that can read and update
+the board from natural conversation. The Next.js frontend (React + dnd-kit)
+is statically exported and served by a FastAPI backend behind a single
+origin in production.
+
+## Architecture overview
+
+- **Frontend** (`frontend/`) — Next.js client-rendered app (Kanban board +
+  Sprint overview), statically exported via `next build` with
+  `output: 'export'`. In dev, `/api/*` is proxied to the backend.
+- **Backend** (`backend/`) — FastAPI app exposing the `/api/*` REST API and
+  serving the static frontend build. Thin routes delegate to a board
+  service that owns all database work.
+- **Database** — SQLite file at `backend/data/kanban.db` (overridable via
+  `KANBAN_DB_PATH`), auto-created and seeded on first startup. Single
+  hardcoded user, single board, five columns, cards, and a chat history
+  table reserved for the AI sidekick.
+- **Authentication** — Signed-cookie sessions (Starlette
+  `SessionMiddleware`); a single hardcoded user (`user` / `password`).
+  Every route except `/login`, `/api/login`, `/api/logout`, and `/api/ping`
+  is gated.
+- **Backend REST API** — `/api/board` (read), `/api/columns/{id}/rename`,
+  `/api/cards` (create), `/api/cards/{id}` (delete),
+  `/api/cards/{id}/move`, and `/api/board/meta` (rename board). Mutations
+  return the full board snapshot for the frontend to swap in.
+- **Deployment** — Docker multi-stage build (Node stage builds the
+  frontend, Python stage serves it) orchestrated via `docker-compose.yml`.
+
+Request flow: **frontend → FastAPI API routes → board_service → SQLite**.
+
+> Note: the frontend currently uses local in-memory state and is not yet
+> wired to the backend API. That integration is the next phase of work.
 
 ## Project structure
 
@@ -63,7 +94,8 @@ bash scripts/stop.sh
 
 The Docker image builds the frontend (`next build` with `output: 'export'`) and
 serves the resulting static files from FastAPI at `http://localhost:8000` — the
-board is at `/` and the API at `/api/*`.
+board is at `/` and the API at `/api/*`. The SQLite database is initialized and
+seeded automatically on first startup.
 
 ## Environment
 

@@ -15,7 +15,6 @@ from __future__ import annotations
 import os
 import sqlite3
 import uuid
-from contextlib import contextmanager
 from pathlib import Path
 from typing import Iterator
 
@@ -172,12 +171,12 @@ def init_db(path: Path | str | None = None) -> None:
         conn.close()
 
 
-@contextmanager
 def get_db() -> Iterator[sqlite3.Connection]:
     """FastAPI dependency yielding a connection for request handlers.
 
-    Not wired into any route in this phase; provided for downstream phases.
-    The connection is closed on exit and rolled back if the handler raised.
+    Used as ``Depends(get_db)``. FastAPI recognizes a plain generator and
+    manages its setup/teardown (including rollback on exception). The
+    connection commits on normal exit and rolls back if the handler raised.
     """
     conn = get_connection()
     try:
