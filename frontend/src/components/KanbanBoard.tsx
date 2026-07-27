@@ -8,6 +8,8 @@ import { Card, Column } from "@/lib/board";
 import * as api from "@/lib/api";
 import { dailyQuote, formatDate, getSprintMetrics } from "@/lib/sprint";
 import type { Board } from "@/lib/board";
+import { AIChatSidebar } from "@/components/AIChatSidebar";
+import type { ChatMessage } from "@/lib/chat";
 
 const cardOwner = (columns: Column[], cardId: string) => columns.find((column) => column.cards.some((card) => card.id === cardId))?.id;
 
@@ -70,6 +72,10 @@ export function KanbanBoard() {
   const [board, setBoard] = useState<Board | null>(null);
   const [error, setError] = useState(false);
   const [activeCard, setActiveCard] = useState<Card | null>(null);
+  const [aiOpen, setAiOpen] = useState(false);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiError, setAiError] = useState<string | null>(null);
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
   const today = useMemo(() => new Date(), []);
 
@@ -82,6 +88,23 @@ export function KanbanBoard() {
   async function withSnapshot<T>(call: () => Promise<Board>): Promise<void> {
     try { setBoard(await call()); }
     catch { void load(); }
+  }
+
+  async function handleSendMessage(message: string) {
+    const userMessage: ChatMessage = { id: `u-${Date.now()}`, role: "user", content: message };
+    setMessages((current) => [...current, userMessage]);
+    setAiError(null);
+    setAiLoading(true);
+    try {
+      const { reply, board: snapshot } = await api.aiChat(message);
+      const aiMessage: ChatMessage = { id: `a-${Date.now()}`, role: "assistant", content: reply };
+      setMessages((current) => [...current, aiMessage]);
+      if (snapshot) setBoard(snapshot);
+    } catch (err) {
+      setAiError(err instanceof Error ? err.message : "AI request failed");
+    } finally {
+      setAiLoading(false);
+    }
   }
 
   function handleDragEnd({ active, over }: DragEndEvent) {
@@ -99,8 +122,8 @@ export function KanbanBoard() {
 
   const columns = board?.columns ?? [];
 
-  return <div className="app-shell">
-    <header className="topbar"><a className="brand" href="#board">momentum</a><div className="board-label"><span className="live-dot" />Project board</div><button type="button" className="logout" onClick={handleLogout}>Sign out</button></header>
+  return <div className={`app-shell ${aiOpen ? "ai-open" : ""}`}>
+    <header className="topbar"><a className="brand" href="#board">momentum</a><div className="board-label"><span className="live-dot" />Project board</div><button type="button" className="ai-toggle" aria-label={aiOpen ? "Close AI assistant" : "Open AI assistant"} aria-expanded={aiOpen} onClick={() => setAiOpen((open) => !open)}>{aiOpen ? "Close AI" : "Ask AI"}</button><button type="button" className="logout" onClick={handleLogout}>Sign out</button></header>
     {board ? (
       <>
         <section className="hero"><div><p className="eyebrow">PROJECT SPACE</p><h1>Make progress<br />with intention.</h1><p className="intro">A focused workspace for the work that matters most.</p></div><div className="daily-note"><span>{formatDate(today)}</span><strong>{dailyQuote(today)}</strong></div></section>
@@ -118,5 +141,6 @@ export function KanbanBoard() {
     ) : (
       <div className="board-status"><p>Loading board…</p></div>
     )}
+    <AIChatSidebar open={aiOpen} messages={messages} loading={aiLoading} error={aiError} onClose={() => setAiOpen(false)} onSend={handleSendMessage} />
   </div>;
 }

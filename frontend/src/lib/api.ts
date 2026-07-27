@@ -71,6 +71,10 @@ export async function updateBoardMeta(title: string): Promise<Board> {
   return read<Board>(response);
 }
 
+export async function aiChat(message: string): Promise<{ reply: string; board: Board }> {
+  return read<{ reply: string; board: Board }>(await post(`/ai/chat`, { message }));
+}
+
 export async function logout(): Promise<void> {
   await fetch(`${API_BASE}/logout`, {
     method: "POST",

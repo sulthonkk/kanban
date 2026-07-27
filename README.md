@@ -9,10 +9,13 @@ origin in production.
 ## Architecture overview
 
 - **Frontend** (`frontend/`) — Next.js client-rendered app (Kanban board +
-  Sprint overview), statically exported via `next build` with
-  `output: 'export'`. Reads from and writes to the backend REST API
-  (`src/lib/api.ts`). A "Sign out" button calls `POST /api/logout`. In dev,
-  `/api/*` and `/login` are proxied to the backend.
+  Sprint overview + AI chat sidebar), statically exported via `next build`
+  with `output: 'export'`. Reads from and writes to the backend REST API
+  (`src/lib/api.ts`). A topbar "Ask AI" button toggles a slide-in sidebar
+  (`components/AIChatSidebar.tsx`) backed by `POST /api/ai/chat` — when the AI
+  changes the board the returned snapshot replaces local state. A "Sign out"
+  button calls `POST /api/logout`. In dev, `/api/*` and `/login` are proxied
+  to the backend.
 - **Backend** (`backend/`) — FastAPI app exposing the `/api/*` REST API and
   serving the static frontend build. Thin routes delegate to a board
   service that owns all database work.
