@@ -1,4 +1,4 @@
-"""Authentication for the Kanban MVP.
+"""Authentication for the Momentum MVP.
 
 A single hardcoded user (`user` / `password`) is supported. The password is
 bcrypt-hashed on first use and stored in memory. Sessions are signed cookies

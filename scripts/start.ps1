@@ -1,4 +1,4 @@
-# Starts the Kanban backend services via Docker.
+# Starts the Momentum backend services via Docker.
 docker compose up -d --build
 Start-Sleep -Seconds 2
 $totalAttempts = 15

@@ -1,4 +1,4 @@
 #!/usr/bin/env bash
-# Stops the Kanban backend services.
+# Stops the Momentum backend services.
 set -euo pipefail
 docker compose down

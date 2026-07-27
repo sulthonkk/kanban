@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Starts the Kanban backend services via Docker.
+# Starts the Momentum backend services via Docker.
 set -euo pipefail
 docker compose up -d --build
 

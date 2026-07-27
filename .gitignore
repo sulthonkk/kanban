@@ -1,5 +1,5 @@
 # --------------------------------------------------------------------------
-# .gitignore — kanban (Next.js frontend + FastAPI backend + Python/uv + Docker + SQLite)
+# .gitignore — Momentum (Next.js frontend + FastAPI backend + Python/uv + Docker + SQLite)
 # --------------------------------------------------------------------------
 
 # ---- Secrets / environment ----

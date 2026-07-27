@@ -6,6 +6,33 @@ the board from natural conversation. The Next.js frontend (React + dnd-kit)
 is statically exported and served by a FastAPI backend behind a single
 origin in production.
 
+## Features
+
+- Single Kanban board with five renameable columns and drag-and-drop cards
+- Card create / edit / delete; editable board title
+- Sprint overview panel with a configurable start/deadline and progress
+- Hardcoded user sign-in (`user` / `password`) with signed-cookie sessions
+- Persistent state — SQLite, auto-created and seeded on first startup
+- AI assistant sidebar ("Ask AI") that can:
+  - create, move, or delete cards
+  - rename a column or the board
+  - chat naturally about the board
+- Backend is the source of truth — every AI change returns the full board
+  snapshot so the UI refreshes in one round-trip
+
+## Tech stack
+
+- **Frontend:** Next.js 16 (React 19), `@dnd-kit` for drag-and-drop,
+  statically exported via `next build` with `output: 'export'`
+- **Backend:** FastAPI + Pydantic v2 + Uvicorn (Python 3.11+)
+- **Database:** SQLite (stdlib `sqlite3`); schema created on startup
+- **AI:** OpenAI SDK pointed at OpenRouter; structured JSON responses
+  validated with a pydantic schema
+- **Testing:** pytest + httpx (backend), Vitest + Testing Library + Playwright
+  (frontend), ruff + ESLint (lint)
+- **Deployment:** Docker multi-stage build (Node stage builds the frontend,
+  Python stage serves it), orchestrated with `docker-compose.yml`
+
 ## Architecture overview
 
 - **Frontend** (`frontend/`) — Next.js client-rendered app (Kanban board +
@@ -36,7 +63,7 @@ origin in production.
   receiving a user message, returning a reply and the updated board
   snapshot (the AI can optionally apply one of the allowed board actions —
   create/delete/move card, rename column, rename board — through the board
-  service). The frontend chat UI lands in a later phase.
+  service).
 - **AI connectivity** — OpenAI SDK pointed at OpenRouter
   (`https://openrouter.ai/api/v1`). `OPENROUTER_API_KEY` and
   `OPENROUTER_MODEL` (default `openai/gpt-oss-20b:free`) come from the
@@ -74,6 +101,10 @@ python -m venv .venv
 .venv/Scripts/python.exe -m uvicorn app.main:app --reload      # Windows
 # .venv/bin/python -m uvicorn app.main:app --reload            # macOS / Linux
 ```
+
+> The backend starts and serves the board without an AI key, but the AI
+> sidebar will return HTTP 503 until `OPENROUTER_API_KEY` is set in `.env`.
+> The board itself (login, drag/drop, CRUD) works without any envconfig.
 
 Frontend (from `frontend/`):
 
@@ -118,7 +149,23 @@ seeded automatically on first startup.
 ## Environment
 
 API keys and other secrets live in `.env` at the repo root (never committed).
+Copy `.env.example` to `.env` and fill in the values before starting:
+
+```bash
+cp .env.example .env        # macOS / Linux
+copy .env.example .env      # Windows
+```
+
 Required variables (see `.env.example`):
 
 - `OPENROUTER_API_KEY` — OpenRouter API key (used by the AI connectivity layer)
 - `OPENROUTER_MODEL` — model id for AI requests (defaults to `openai/gpt-oss-20b:free`)
+
+Optional variables:
+
+- `SESSION_SECRET` — secret used to sign session cookies. Has a dev default
+  (`kanban-mvp-dev-secret-change-me`) that **must be overridden in
+  production**.
+- `KANBAN_DB_PATH` — absolute path to the SQLite file. Defaults to
+  `backend/data/kanban.db`. Tests override this to a temp file for
+  isolation.
