@@ -17,24 +17,37 @@ statically-exported Next.js frontend (built into `frontend/out/` and copied to
   `get_db` dependency). See "Database" below.
 - `app/schemas.py` — Pydantic v2 models for the board API
   (`Board`/`Column`/`Card` response models + request bodies). `NonBlankStr`
-  strips then enforces `min_length=1` for titles.
+  strips then enforces `min_length=1` for titles. Also hosts the Phase 8
+  AI structured-output models (see "AI board chat").
 - `app/board_service.py` — Board service: all DB operations for the board.
   Resolves the session user's single board and raises `LookupError` for
-  missing resources (routes map that to 404).
+  missing resources (routes map that to 404). All board mutations live here;
+  the AI chat service calls these functions and never writes board SQL itself.
 - `app/board_api.py` — Thin `APIRouter` (prefix `/api`) with the six board
   endpoints. Routes delegate to `board_service` and only handle HTTP concerns.
 - `app/ai_client.py` — OpenRouter AI client. Minimal wrapper over the OpenAI
   SDK pointed at `https://openrouter.ai/api/v1`. Reads `OPENROUTER_API_KEY`
   and `OPENROUTER_MODEL` (default `openai/gpt-oss-20b:free`) from the env,
   no model name is hardcoded in app code. See "AI connectivity" below.
+  Exposes single-turn `ask` (Phase 7) and multi-turn `ask_chat` (Phase 8).
+- `app/ai_chat_service.py` — Phase 8 AI board-chat orchestration. Loads the
+  user's board + recent `chat_history`, builds a JSON-only prompt, calls
+  `ai_client.ask_chat`, validates the AI payload against the `AiResponse`
+  schema, applies the optional action through `board_service`, persists both
+  chat turns, and returns `(reply, board)`. See "AI board chat".
+- `app/chat_history_repo.py` — Thin SQL helper for the `chat_history` table
+  (Phase 8): `append(conn, user_id, role, content)` and
+  `load_recent(conn, user_id, limit=10)` for chat-context loading. No schema
+  change; reuses the Phase 4 table.
 - `app/ai_api.py` — Thin `APIRouter` (prefix `/api/ai`) for AI features.
   Phase 7 exposes `GET /api/ai/test` ("What is 2+2?") returning
-  `{"answer": "..."}`. Routes delegate to `ai_client`; config errors map to
+  `{"answer": "..."}`. Phase 8 adds `POST /api/ai/chat` (see "AI board chat").
+  Routes delegate to `ai_client` / `ai_chat_service`; config errors map to
   503, upstream errors to 502.
 - `app/templates/login.html` — Login form template (styled per the project
   color scheme; Python `.replace('{error_block}', ...)` for error injection).
 - `app/tests/` — pytest unit tests (`test_main.py`, `test_auth.py`,
-  `test_db.py`, `test_board_api.py`, `test_ai.py`).
+  `test_db.py`, `test_board_api.py`, `test_ai.py`, `test_ai_chat.py`).
 - `requirements.txt` — Python dependencies (pinned).
 - `pyproject.toml` — ruff + pytest configuration.
 - `Dockerfile` — multi-stage build (Node stage builds the frontend,
@@ -184,3 +197,121 @@ assertion (model from env, no hardcoded model in the call, no
 `response_format` for the test prompt), `OPENROUTER_MODEL` override,
 auth-gating (303 to `/login`), 503 on missing key, 502 on upstream error,
 and `None`-content coercion.
+
+## AI board chat (Phase 8)
+
+Phase 8 adds the backend foundation for AI-driven board updates. No frontend
+chat UI yet (Phase 9). All board mutations continue to live in
+`board_service.py`; the AI chat service only validates and dispatches.
+
+### Layering
+
+```
+POST /api/ai/chat        (app/ai_api.py — thin, auth-gated)
+        |
+        v
+ai_chat_service.handle_chat(conn, username, message)
+        |
+        |-- board_service.get_board(...)                # current snapshot
+        |-- chat_history_repo.load_recent(..., limit=10) # context window
+        |-- ai_client.ask_chat(messages, response_format={"type": "json_object"})
+        |-- json.loads + AiResponse pydantic validation (single retry on failure)
+        |-- _validate_references(board, action)         # reject hallucinated ids
+        |-- board_service.<mutator>(...)                # no new SQL here
+        |-- chat_history_repo.append(user_turn) + append(assistant_turn)
+        '-- return ChatResult(reply, board)
+```
+
+### Structured-output strategy
+
+Per the Phase 7 model-capability notes, strict `response_format: json_schema`
+is intermittent for `openai/gpt-oss-20b:free` (occasionally returns
+`content: null`). Phase 8 therefore uses the documented reliable fallback:
+
+1. `response_format={"type": "json_object"}` (100% reliable per Phase 7 notes)
+   + a JSON-only system prompt that declares the exact action schema.
+2. `json.loads` the model output; on `JSONDecodeError`, retry once with a
+   corrective prompt ("Output ONLY a JSON object...").
+3. Validate the parsed dict against the pydantic `AiResponse` schema
+   (discriminated union on `action.type`). Malformed/unknown actions are
+   rejected at parse time — no mutation, no exception, just a safe reply.
+4. Validate referenced `card_id` / `column_id` values against the current
+   board snapshot (the AI may hallucinate stale ids from history); an
+   annotated apology is appended and the action is dropped.
+
+No new dependencies: pydantic v2 (already pinned) handles validation.
+
+### Action schema
+
+The AI returns exactly one `reply` (always present) and at most one `action`
+per turn (MVP — simplest correct behavior). Models live in `app/schemas.py`:
+
+- `CreateCardAction`     — `{type, column_id, title, details?}`
+- `DeleteCardAction`     — `{type, card_id}`
+- `MoveCardAction`       — `{type, card_id, column_id, index?}`
+- `RenameColumnAction`   — `{type, column_id, title}`
+- `UpdateBoardMetaAction`— `{type, title}`
+- `AiAction` — discriminated union of the above (rejected at parse time if
+  the `type` is unknown or any required field is missing/blank).
+- `AiResponse` — `{reply: NonBlankStr, action: AiAction | None}`.
+
+`NonBlankStr` (strip + `min_length=1`) and `IdStr` (`min_length=1`) are
+reused for all required string fields, matching the board-API validators.
+
+### API endpoint
+
+`POST /api/ai/chat`, auth-gated by the existing middleware (unauthed -> 303
+to `/login`, like all `/api/*` routes). Body: `{"message": "..."}` (pydantic
+`ChatRequest`, `NonBlankStr`). Response: `{"reply": "...", "board": {...}}`
+— `board` is always the current snapshot (mirrors the board-API convention
+that callers can replace state in one round-trip).
+
+### chat_history integration
+
+- The user turn is appended **after** loading history (so it isn't duplicated
+  in the prompt) and **before** calling the AI.
+- The assistant turn is appended **after** validation (so we never store an
+  invalid AI reply as if it were successful). On the safe-failure path the
+  canonical apology text is persisted instead.
+- `chat_history_repo.load_recent` orders by SQLite `rowid` (insertion order)
+  rather than `created_at`, because rows written in the same second would
+  otherwise lack a stable tiebreaker.
+- No schema change; `role` values `'user'` / `'assistant'` match the existing
+  CHECK constraint from Phase 4.
+
+### Error handling
+
+| Failure                                      | HTTP | Persisted         |
+|----------------------------------------------|------|-------------------|
+| `AIConfigError` (`OPENROUTER_API_KEY` unset) | 503  | neither turn      |
+| Upstream SDK / network error                 | 502  | neither turn (the |
+|                                              |      | `get_db` dep rolls|
+|                                              |      | back the user turn|
+|                                              |      | on the exception) |
+| Malformed AI JSON (even after retry)         | 200  | both turns (safe  |
+|                                              |      | apology persisted)|
+| Invalid action (unknown type / blank field)  | 200  | both turns (safe |
+|                                              |      | reply persisted)  |
+| Action references missing card/column        | 200  | both turns        |
+| `LookupError` raised by `board_service`      | 500  | neither survives  |
+|                                              |      | the rollback       |
+
+All 200 responses on AI-failure paths include the unchanged board snapshot.
+
+### Testing the AI chat service
+
+`test_ai_chat.py` reuses the Phase 7 fake-OpenAI pattern: a fake
+`completions.create` records every call and returns canned content from a
+FIFO queue, so the suite can stage both primary and retry outputs. No live
+network calls. Coverage: reply-only success, AI creating/deleting/moving/
+renaming cards/columns, malformed-JSON safe reply (with and without retry
+recovery), unknown action-type rejection, blank-title rejection, hallucinated
+`card_id` rejection, `chat_history` persistence (both turns in correct
+order, even on AI failure), history loaded as multi-turn context,
+auth-gating (303 to `/login`), blank-message 422, 503 on missing key, 502 on
+upstream error, and direct `handle_chat` service tests for each action.
+The fake-SDK assert confirms every call uses `response_format={"type":
+"json_object"}` and the model name from the env.
+
+The full suite is `test_main.py`, `test_auth.py`, `test_db.py`,
+`test_board_api.py`, `test_ai.py`, `test_ai_chat.py` (91 tests total).

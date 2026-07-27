@@ -29,11 +29,19 @@ origin in production.
   `/api/cards/{id}/move`, and `/api/board/meta` (rename board). Mutations
   return the full board snapshot for the frontend to swap in. A connectivity
   endpoint `GET /api/ai/test` returns the OpenRouter model's answer to
-  "What is 2+2?" (AI foundation; full chat arrives in a later phase).
+  "What is 2+2?", and `POST /api/ai/chat` runs one AI board-chat turn:
+  receiving a user message, returning a reply and the updated board
+  snapshot (the AI can optionally apply one of the allowed board actions —
+  create/delete/move card, rename column, rename board — through the board
+  service). The frontend chat UI lands in a later phase.
 - **AI connectivity** — OpenAI SDK pointed at OpenRouter
   (`https://openrouter.ai/api/v1`). `OPENROUTER_API_KEY` and
   `OPENROUTER_MODEL` (default `openai/gpt-oss-20b:free`) come from the
-  environment; no model name is hardcoded in application code.
+  environment; no model name is hardcoded in application code. AI board chat
+  asks the model for `response_format={"type": "json_object"}` (the
+  reliable path for this free reasoning model per Phase 7 notes), parses and
+  validates the payload with a pydantic schema, and retries once on
+  malformed JSON before returning a safe reply.
 - **Deployment** — Docker multi-stage build (Node stage builds the
   frontend, Python stage serves it) orchestrated via `docker-compose.yml`.
 

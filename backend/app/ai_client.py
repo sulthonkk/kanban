@@ -8,9 +8,10 @@ to the dev model ``openai/gpt-oss-20b:free`` per AGENTS.md).
 Architecture role: the "external dependency" the AI service exposes to
 routes. Routes stay thin (``app/ai_api.py``); this module owns SDK wiring.
 
-For Phase 7 only the plain ``ask`` call is exercised by ``GET /api/ai/test``.
-The optional ``response_format`` parameter is accepted so Phase 8 can reuse
-the same client for structured outputs.
+Phase 7 uses the single-turn ``ask`` call (exercised by ``GET /api/ai/test``).
+Phase 8 adds ``ask_chat`` for multi-turn conversation: callers build the full
+``messages`` list (system + board-context + history + user) and pass it
+through. Both functions accept ``response_format`` for structured outputs.
 """
 
 from __future__ import annotations
@@ -72,6 +73,32 @@ def ask(
     kwargs: dict[str, Any] = {
         "model": _read_model(),
         "messages": [{"role": "user", "content": prompt}],
+        "max_tokens": max_tokens,
+    }
+    if response_format is not None:
+        kwargs["response_format"] = response_format
+    completion = client.chat.completions.create(**kwargs)
+    return completion.choices[0].message.content or ""
+
+
+def ask_chat(
+    messages: list[dict[str, Any]],
+    *,
+    response_format: dict[str, Any] | None = None,
+    max_tokens: int = 2000,
+) -> str:
+    """Send a multi-turn chat to the configured OpenRouter model.
+
+    ``messages`` is the full OpenAI chat-completions message list (caller
+    builds system + board context + history + user turn). Returns the
+    assistant's text content (empty string if ``content is None``, matching
+    ``ask``'s behavior). Raises :class:`AIConfigError` if the key is missing;
+    propagates SDK exceptions to the caller.
+    """
+    client = _get_client()
+    kwargs: dict[str, Any] = {
+        "model": _read_model(),
+        "messages": messages,
         "max_tokens": max_tokens,
     }
     if response_format is not None:
